@@ -1,0 +1,17 @@
+{
+  "name": "skylark-curl",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"TODO\""
+  },
+  "bin": {
+    "skylark-curl": "src/index.js"
+  },
+  "author": "Joshua Gross <joshua.gross@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "moment": "^2.11.2"
+  }
+}
