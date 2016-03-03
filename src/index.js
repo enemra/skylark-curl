@@ -96,7 +96,7 @@ var digest = method + "\n" + path + "\n" + host + "\n" + port + "\n" + query + "
 var signature = hmacSHA512(secret, digest);
 if (token && secret && signature) {
   curlArgs.push('-H');
-  curlArgs.push('Authorization: SWIFT-PRF-HMAC-SHA-512 ' + token + ':' + signature);
+  curlArgs.push('Authorization: SWIFT-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature);
 }
 
 // Dispatch curl command
