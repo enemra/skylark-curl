@@ -70,7 +70,7 @@ var uri = curlArgs.filter(function (arg) {
 var parsedUri = url.parse(uri);
 
 // Canonicalize query string
-var canonicalizedQuery = '?' + parsedUri.query.split('&').sort(function (a, b) {
+var canonicalizedQuery = '?' + (parsedUri.query || '').split('&').sort(function (a, b) {
   var aName = a.split('=')[0] || a;
   var bName = b.split('=')[0] || b;
   return aName.localeCompare(bName);
@@ -94,8 +94,10 @@ var digest = method + "\n" + path + "\n" + host + "\n" + port + "\n" + query + "
 
 // Create auth header
 var signature = hmacSHA512(secret, digest);
-curlArgs.push('-H');
-curlArgs.push('Authorization: SWIFT-PRF-HMAC-SHA-512 ' + token + ':' + signature);
+if (token && secret && signature) {
+  curlArgs.push('-H');
+  curlArgs.push('Authorization: SWIFT-PRF-HMAC-SHA-512 ' + token + ':' + signature);
+}
 
 // Dispatch curl command
 var curl = exec('curl ' + curlArgs.map(escapeShell).join(' '));
