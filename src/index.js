@@ -90,7 +90,7 @@ var path = parsedUri.pathname;
 var host = parsedUri.hostname;
 var port = parsedUri.port;
 var query = canonicalizedQuery;
-var digest = method + "\n" + path + "\n" + host + ':' + port + "\n" + query + "\n" + canonicalSwiftHeaders + "\n";
+var digest = method + "\n" + path + "\n" + host + "\n" + port + "\n" + query + "\n" + canonicalSwiftHeaders + "\n";
 
 // Create auth header
 var signature = hmacSHA512(secret, digest);
