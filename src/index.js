@@ -43,7 +43,7 @@ for (var i in curlArgs) {
 // Add date header
 var now = moment().utc().format("YYYY-MM-DDTHH:mm:ssZZ");
 curlArgs.push('-H');
-curlArgs.push('X-Swift-Date: ' + now);
+curlArgs.push('X-SwiftNav-Date: ' + now);
 
 // Canonicalize headers
 var swiftHeaders = [];
@@ -51,7 +51,7 @@ for (var i in curlArgs) {
   var arg = curlArgs[i];
   if (arg === '-H') {
     var headerValue = curlArgs[parseInt(i) + 1].split(' ');
-    if ((headerValue[0] || '').toLowerCase().indexOf('x-swift') === 0) {
+    if ((headerValue[0] || '').toLowerCase().indexOf('x-swiftnav') === 0) {
       swiftHeaders.push(headerValue[0].toLowerCase() + headerValue.splice(1).join(' '));
     }
   }
@@ -96,7 +96,7 @@ var digest = method + "\n" + path + "\n" + host + "\n" + port + "\n" + query + "
 var signature = hmacSHA512(secret, digest);
 if (token && secret && signature) {
   curlArgs.push('-H');
-  curlArgs.push('Authorization: SWIFT-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature);
+  curlArgs.push('Authorization: SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature);
 }
 
 // Dispatch curl command
