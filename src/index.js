@@ -21,24 +21,8 @@ var url = require('url');
 var curlArgs = process.argv.splice(2);
 
 // Extract token, secret
-var token = "";
-var secret = "";
-for (var i in curlArgs) {
-  var arg = curlArgs[i];
-  if (arg === '--token') {
-    token = curlArgs[parseInt(i) + 1];
-    curlArgs.splice(i, 2);
-    break;
-  }
-}
-for (var i in curlArgs) {
-  var arg = curlArgs[i];
-  if (arg === '--secret') {
-    secret = curlArgs[parseInt(i) + 1];
-    curlArgs.splice(i, 2);
-    break;
-  }
-}
+var token = lookupArg('--token', true) || "";
+var secret = lookupArg('--secret', true) || "";
 
 // Add date header
 var now = moment().utc().format("YYYY-MM-DDTHH:mm:ssZZ");
@@ -77,20 +61,17 @@ var canonicalizedQuery = '?' + (parsedUri.query || '').split('&').sort(function 
 }).join('&');
 
 // Get request method
-var method = "GET";
-for (var i in curlArgs) {
-  var arg = curlArgs[i];
-  if (arg === '-X') {
-    method = curlArgs[parseInt(i) + 1];
-  }
-}
+var method = lookupArg('-X') || "GET";
+
+// Get request body, if present
+var body = lookupArg('--data') || '';
 
 // TODO: put port on a separate line
 var path = parsedUri.pathname;
 var host = parsedUri.hostname;
-var port = parsedUri.port;
+var port = parsedUri.port || (parsedUri.protocol === 'https:' ? 443 : 80);
 var query = canonicalizedQuery;
-var digest = method + "\n" + path + "\n" + host + "\n" + port + "\n" + query + "\n" + canonicalSwiftHeaders + "\n";
+var digest = method + "\n" + path + "\n" + host + "\n" + port + "\n" + query + "\n" + canonicalSwiftHeaders + "\n" + body;
 
 // Create auth header
 var signature = hmacSHA512(secret, digest);
@@ -112,5 +93,21 @@ function escapeShell (cmd) {
   if (cmd.indexOf(' ') !== -1 || cmd.indexOf('&') !== -1) {
     return '"'+cmd.replace(/(["'$`\\])/g,'\\$1')+'"';
   }
+  if (cmd === '') {
+    return "\"\"";
+  }
   return cmd;
+}
+
+function lookupArg (argName, destructive) {
+  for (var i in curlArgs) {
+    var arg = curlArgs[i];
+    if (arg === argName) {
+      var value = curlArgs[parseInt(i) + 1];
+      if (destructive === true) {
+        curlArgs.splice(i, 2);
+      }
+      return value;
+    }
+  }
 }
