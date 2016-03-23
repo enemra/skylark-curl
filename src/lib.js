@@ -178,28 +178,41 @@ module.exports = {
     return this.sign(uri, token, secret, time, passthrough);
   },
 
+  // Signs the given request
+  signRequest: function(uri, token, secret, time, request) {
+    // TODO
+  },
+
+  // Finds the given header and removes it from the request!
+  yankHeader: function(req, key) {
+    const args = req.rawHeaders;
+    for (var i in args) {
+      var arg = args[i];
+      if (arg.toLowerCase() === key.toLowerCase()) {
+        var value = args[parseInt(i) + 1];
+        args.splice(i, 2);
+        return value;
+      }
+    }
+  },
+
   runProxy: function(uri, port) {
     const self = this;
     const proxy = httpProxy.createProxyServer({
       secure: true
     });
 
-    proxy.on('proxyReq', function(proxyReq, req, res, options) {
-      const token = proxyReq.getHeader(self.tokenHeader);
-      const secret = proxyReq.getHeader(self.secretHeader);
-      proxyReq.removeHeader(self.tokenHeader);
-      proxyReq.removeHeader(self.secretHeader);
+    const server = http.createServer(function(req, res) {
+      self.logTime(req.method + ' ' + req.url);
+      const token = self.yankHeader(req, self.tokenHeader);
+      const secret = self.yankHeader(req, self.secretHeader);
       if (token && secret) {
         self.logTime('Signing with token: ' + token);
-        // Sign and add whatever
-        proxyReq.setHeader('X-Special-Proxy-Header', 'foobar');
+        const time = self.now();
+        self.signRequest(uri, token, secret, time, req);
       } else {
         self.logTime('Not signing');
       }
-    });
-
-    const server = http.createServer(function(req, res) {
-      self.logTime(req.method + ' ' + req.url);
       proxy.web(req, res, {
         target: uri
       });
