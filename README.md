@@ -1,22 +1,32 @@
 # skylark-curl
-a CLI passthru to curl that will HMAC-sign requests for you 
 
-## Install
+Utilities to sign your requests to the Swift Navigation Skylark API.  We offer
+two modes of operation:
 
-```
-npm install -g git+ssh://git@github.com:swift-nav/skylark-curl.git
-```
+1) A CLI passthrough to `curl` that will HMAC-sign requests for you.
+2) An HTTP proxy that will sign your requests in flight.  (Coming soon.)
+
+## Installation
+
+It is possible to run `skylark-curl` directly with npm:
+
+  npm run curl -- --uri http://localhost:3030 --token asdf --secret sdfg -- -H "X-MyHeader: MyValue"
+
+Note the first `--` denotes passthrough of arguments to `skylark-curl` and the
+second `--` denotes passthrough of arguments to `curl`.
+
+If you prefer, you can install this package globally so the `skylark-curl`
+package is available on your PATH (assuming that's setup correctly) by
+running:
+
+    npm install -g git+ssh://git@github.com:swift-nav/skylark-curl.git
 
 ## Usage
 
 Fetch an auth token/secret pair:
 
-```
-skylark-curl -v http://localhost:3030/auth/token -X OST
-```
+    skylark-curl --uri http://localhost:3030/auth/token -- -X POST
 
 Use your token and secret to make requests:
 
-```
-skylark-curl -v http://localhost:3030/accounts -X POST --data "{...}" --token f977f37e-abcd-abcd-abcd-7904211421e0 --secret 0xdeadbeef0xdeadbeef0xdeadbeef0xdeadbeef0xdeadbeef0xdeadbeef0xdeadbeef0xdeadbeefa6fb1faa7eef26747c9b0b375f2ccce6566201b51c7e14f4
-```
+    skylark-curl --uri http://localhost:3030/accounts --token asdf --secret sdfg

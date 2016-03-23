@@ -4,7 +4,7 @@
   "description": "",
   "main": "src/index.js",
   "scripts": {
-    "test": "echo \"TODO\""
+    "curl": "node src/index.js"
   },
   "bin": {
     "skylark-curl": "src/index.js"
