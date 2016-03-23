@@ -3,7 +3,9 @@ const hmacSHA512 = require('./sha512');
 const moment = require('moment');
 const url = require('url');
 
-module.exports.escapeShell = function(cmd) {
+const Lib = function() {};
+
+Lib.prototype.escapeShell = function(cmd) {
   if (cmd.indexOf(' ') !== -1 || cmd.indexOf('&') !== -1) {
     return '"'+cmd.replace(/(["'$`\\])/g,'\\$1')+'"';
   }
@@ -14,7 +16,7 @@ module.exports.escapeShell = function(cmd) {
 }
 
 // Parse ['--foo', 'bar', '--baz', 'quux'] to {'foo': 'bar', 'baz': 'quux'}
-function parsePairs(arr) {
+Lib.prototype.parsePairs = function(arr) {
   const map = {};
   const n = arr.length;
   var i = 0;
@@ -30,19 +32,19 @@ function parsePairs(arr) {
 // Given args like
 // --foo bar --baz quux -- --beep boop
 // Returns [{'foo': 'bar', 'baz': 'quux'}, ['--beep', 'boop']]
-module.exports.parseArgs = function(args) {
+Lib.prototype.parseArgs = function(args) {
   // Find the passthrough marker
   const split = args.findIndex(s => s == '--');
   // Split into a section to parse and one to passthrough
   const endex = split < 0 ? args.length : split;
   const toParse = args.slice(0, endex);
   const passthrough = args.slice(endex + 1);
-  const parsed = parsePairs(toParse);
+  const parsed = this.parsePairs(toParse);
   return [parsed, passthrough];
 }
 
 // From ['bar', 'baz'] and 'bar' return 'baz'
-module.exports.lookupArg = function(args, key) {
+Lib.prototype.lookupArg = function(args, key) {
   for (var i in args) {
     var arg = args[i];
     if (arg === key) {
@@ -53,7 +55,7 @@ module.exports.lookupArg = function(args, key) {
 }
 
 // From ['bar', 'baz', 'bar', 'bang'] and 'bar' return ['baz', 'bang']
-module.exports.lookupAllArgs = function(args, key) {
+Lib.prototype.lookupAllArgs = function(args, key) {
   const found = [];
   for (var i in args) {
     var arg = args[i];
@@ -66,17 +68,17 @@ module.exports.lookupAllArgs = function(args, key) {
 }
 
 // Returns the current UTC time in ISO8601.
-module.exports.now = function() {
+Lib.prototype.now = function() {
   return moment().utc().format('YYYY-MM-DDTHH:mm:ssZZ');
 }
 
 // throw can't be used in expression position, so...
-module.exports.die = function(reason) {
+Lib.prototype.die = function(reason) {
   throw reason;
 }
 
 // Run the given shell command and exit with its return code.
-module.exports.execAndExit = function(command) {
+Lib.prototype.execAndExit = function(command) {
   const p = exec(command);
   p.stdout.pipe(process.stdout);
   p.stderr.pipe(process.stderr);
@@ -87,7 +89,7 @@ module.exports.execAndExit = function(command) {
 }
 
 // Calculates request signature and returns [auth header, curl command]
-module.exports.sign = function(uri, token, secret, time, passthrough) {
+Lib.prototype.sign = function(uri, token, secret, time, passthrough) {
   const curlArgs = passthrough.slice();
 
   curlArgs.unshift(uri);
@@ -98,7 +100,7 @@ module.exports.sign = function(uri, token, secret, time, passthrough) {
 
   // Canonicalize headers
   const swiftHeaders = [];
-  module.exports.lookupAllArgs(curlArgs, '-H').forEach(function(value) {
+  this.lookupAllArgs(curlArgs, '-H').forEach(function(value) {
     const headerValue = value.split(' ');
     if ((headerValue[0] || '').toLowerCase().indexOf('x-swiftnav') === 0) {
       swiftHeaders.push(headerValue[0].toLowerCase() + headerValue.splice(1).join(' '));
@@ -121,10 +123,10 @@ module.exports.sign = function(uri, token, secret, time, passthrough) {
   }).join('&');
 
   // Get request method
-  const method = module.exports.lookupArg(curlArgs, '-X') || "GET";
+  const method = this.lookupArg(curlArgs, '-X') || "GET";
 
   // Get request body, if present
-  const body = module.exports.lookupArg(curlArgs, '--data') || '';
+  const body = this.lookupArg(curlArgs, '--data') || '';
 
   // TODO: put port on a separate line
   const path = parsedUri.pathname;
@@ -142,7 +144,29 @@ module.exports.sign = function(uri, token, secret, time, passthrough) {
     curlArgs.push(authorization);
   }
 
-  const command = 'curl ' + curlArgs.map(module.exports.escapeShell).join(' ');
+  const command = 'curl ' + curlArgs.map(this.escapeShell).join(' ');
 
   return [authorization, command];
 }
+
+Lib.prototype.main = function() {
+  const argPair = this.parseArgs(process.argv.slice(2));
+  const parsedArgs = argPair[0];
+  const passthrough = argPair[1];
+
+  // Extract token, secret
+  var uri = parsedArgs['uri'] || this.die('need --uri');
+  var token = parsedArgs['token'];
+  var secret = parsedArgs['secret'];
+  var time = parsedArgs['time'] || this.now();
+
+  const signPair = this.sign(uri, token, secret, time, passthrough);
+  const authorization = signPair[0];
+  const curlCommand = signPair[1];
+
+  console.log(curlCommand);
+
+  this.execAndExit(curlCommand);
+}
+
+module.exports = new Lib();
