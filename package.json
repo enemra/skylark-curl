@@ -1,7 +1,7 @@
 {
   "name": "skylark-curl",
   "version": "1.0.0",
-  "description": "",
+  "description": "Utilities to sign requests to the Swift Navigation Skylark API",
   "main": "src/index.js",
   "scripts": {
     "curl": "node src/index.js",

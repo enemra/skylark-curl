@@ -1,7 +1,7 @@
 # skylark-curl
 
-Utilities to sign your requests to the Swift Navigation Skylark API.  We offer
-two modes of operation:
+Utilities to sign requests to the Swift Navigation Skylark API.  We offer two
+modes of operation:
 
 1) A CLI passthrough to `curl` that will HMAC-sign requests for you.
 2) An HTTP proxy that will sign your requests in flight.  (Coming soon.)
@@ -30,3 +30,8 @@ Fetch an auth token/secret pair:
 Use your token and secret to make requests:
 
     skylark-curl --uri http://localhost:3030/accounts --token asdf --secret sdfg
+
+## License
+
+This code is MIT-licensed except for certain portions redistributed under the
+BSD license (as noted).

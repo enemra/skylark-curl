@@ -1,3 +1,8 @@
+/**
+ * Copyright: 2016 Swift Navigation
+ * License: MIT
+ */
+
 const lib = require('../src/lib.js');
 
 module.exports = {

@@ -1,3 +1,8 @@
+/**
+ * Copyright: 2016 Swift Navigation
+ * License: MIT
+ */
+
 const exec = require('child_process').exec;
 const hmacSHA512 = require('./sha512');
 const moment = require('moment');
