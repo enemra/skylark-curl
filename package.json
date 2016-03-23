@@ -4,7 +4,8 @@
   "description": "",
   "main": "src/index.js",
   "scripts": {
-    "curl": "node src/index.js"
+    "curl": "node src/index.js",
+    "test": "nodeunit test/test.js"
   },
   "bin": {
     "skylark-curl": "src/index.js"
@@ -13,5 +14,8 @@
   "license": "MIT",
   "dependencies": {
     "moment": "^2.11.2"
+  },
+  "devDependencies": {
+    "nodeunit": "^0.9.1"
   }
 }
