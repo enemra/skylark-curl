@@ -143,9 +143,9 @@ module.exports = {
     const digest = method + "\n" + path + "\n" + host + "\n" + port + "\n" + query + "\n" + canonicalSwiftHeaders + "\n" + body;
 
     // Create auth header
-    const signature = hmacSHA512(secret, digest);
     var authHeader = '';
-    if (token && secret && signature) {
+    if (token && secret) {
+      const signature = hmacSHA512(secret, digest);
       authHeader = 'Authorization: SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
       curlArgs.push('-H');
       curlArgs.push(authHeader);
