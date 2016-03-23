@@ -167,6 +167,10 @@ module.exports = {
     return this.sign(uri, token, secret, time, passthrough);
   },
 
+  runProxy: function(uri) {
+    this.die('proxy not implemented');
+  },
+
   // Main function for skylark-curl
   main: function() {
     const args = process.argv.slice(2);
@@ -181,7 +185,8 @@ module.exports = {
       const curlCommand = prepared[2];
       this.execAndExit(curlCommand);
     } else if (mode === 'proxy') {
-      this.die('proxy mode not implemented');
+      const uri = parsedArgs['uri'] || this.die('need --uri');
+      this.runProxy(uri);
     } else {
       this.die('unknown mode: ' + mode);
     }
