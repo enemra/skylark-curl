@@ -94,9 +94,11 @@ Lib.prototype.sign = function(uri, token, secret, time, passthrough) {
 
   curlArgs.unshift(uri);
 
+  const timeHeader = 'X-SwiftNav-Date: ' + time;
+
   // Add date header
   curlArgs.push('-H');
-  curlArgs.push('X-SwiftNav-Date: ' + time);
+  curlArgs.push(timeHeader);
 
   // Canonicalize headers
   const swiftHeaders = [];
@@ -137,20 +139,20 @@ Lib.prototype.sign = function(uri, token, secret, time, passthrough) {
 
   // Create auth header
   const signature = hmacSHA512(secret, digest);
-  var authorization = '';
+  var authHeader = '';
   if (token && secret && signature) {
-    authorization = 'Authorization: SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
+    authHeader = 'Authorization: SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
     curlArgs.push('-H');
-    curlArgs.push(authorization);
+    curlArgs.push(authHeader);
   }
 
   const command = 'curl ' + curlArgs.map(this.escapeShell).join(' ');
 
-  return [authorization, command];
+  return [timeHeader, authHeader, command];
 }
 
-Lib.prototype.main = function() {
-  const argPair = this.parseArgs(process.argv.slice(2));
+Lib.prototype.parseAndSign = function(args) {
+  const argPair = this.parseArgs(args);
   const parsedArgs = argPair[0];
   const passthrough = argPair[1];
 
@@ -160,12 +162,13 @@ Lib.prototype.main = function() {
   var secret = parsedArgs['secret'];
   var time = parsedArgs['time'] || this.now();
 
-  const signPair = this.sign(uri, token, secret, time, passthrough);
-  const authorization = signPair[0];
-  const curlCommand = signPair[1];
+  return this.sign(uri, token, secret, time, passthrough);
+}
 
+Lib.prototype.main = function() {
+  const signed = this.parseAndSign(process.argv.slice(2));
+  const curlCommand = signed[2];
   console.log(curlCommand);
-
   this.execAndExit(curlCommand);
 }
 
