@@ -11,6 +11,11 @@ const moment = require('moment');
 const url = require('url');
 
 module.exports = {
+  dateHeader: 'X-SwiftNav-Date',
+  authHeader: 'Authorization',
+  tokenHeader: 'X-SwiftNav-Proxy-Token',
+  secretHeader: 'X-SwiftNav-Proxy-Secret',
+
   // String escape for use with `exec`
   escapeShell: function(cmd) {
     if (cmd.indexOf(' ') !== -1 || cmd.indexOf('&') !== -1) {
@@ -105,7 +110,7 @@ module.exports = {
 
     curlArgs.unshift(uri);
 
-    const timeHeader = 'X-SwiftNav-Date: ' + time;
+    const timeHeader = this.dateHeader + ': ' + time;
 
     // Add date header
     curlArgs.push('-H');
@@ -152,7 +157,7 @@ module.exports = {
     var authHeader = '';
     if (token && secret) {
       const signature = hmacSHA512(secret, digest);
-      authHeader = 'Authorization: SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
+      authHeader = this.authHeader + ': SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
       curlArgs.push('-H');
       curlArgs.push(authHeader);
     }
@@ -180,7 +185,17 @@ module.exports = {
     });
 
     proxy.on('proxyReq', function(proxyReq, req, res, options) {
-      proxyReq.setHeader('X-Special-Proxy-Header', 'foobar');
+      const token = proxyReq.getHeader(self.tokenHeader);
+      const secret = proxyReq.getHeader(self.secretHeader);
+      proxyReq.removeHeader(self.tokenHeader);
+      proxyReq.removeHeader(self.secretHeader);
+      if (token && secret) {
+        self.logTime('Signing with token: ' + token);
+        // Sign and add whatever
+        proxyReq.setHeader('X-Special-Proxy-Header', 'foobar');
+      } else {
+        self.logTime('Not signing');
+      }
     });
 
     const server = http.createServer(function(req, res) {
