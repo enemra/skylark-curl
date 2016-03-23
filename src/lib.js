@@ -105,7 +105,7 @@ Lib.prototype.sign = function(uri, token, secret, time, passthrough) {
   this.lookupAllArgs(curlArgs, '-H').forEach(function(value) {
     const headerValue = value.split(' ');
     if ((headerValue[0] || '').toLowerCase().indexOf('x-swiftnav') === 0) {
-      swiftHeaders.push(headerValue[0].toLowerCase() + headerValue.splice(1).join(' '));
+      swiftHeaders.push(headerValue[0].toLowerCase() + headerValue.slice(1).join(' '));
     }
   })
 
