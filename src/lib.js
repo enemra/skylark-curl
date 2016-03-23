@@ -157,24 +157,33 @@ module.exports = {
   },
 
   // Parse arguments and return a signed request
-  parseAndSign: function(args) {
-    const argPair = this.parseArgs(args);
-    const parsedArgs = argPair[0];
-    const passthrough = argPair[1];
-
+  prepareCurl: function(parsedArgs, passthrough) {
     // Extract token, secret
-    var uri = parsedArgs['uri'] || this.die('need --uri');
-    var token = parsedArgs['token'];
-    var secret = parsedArgs['secret'];
-    var time = parsedArgs['time'] || this.now();
+    const uri = parsedArgs['uri'] || this.die('need --uri');
+    const token = parsedArgs['token'];
+    const secret = parsedArgs['secret'];
+    const time = parsedArgs['time'] || this.now();
 
     return this.sign(uri, token, secret, time, passthrough);
   },
 
   // Main function for skylark-curl
   main: function() {
-    const signed = this.parseAndSign(process.argv.slice(2));
-    const curlCommand = signed[2];
-    this.execAndExit(curlCommand);
+    const args = process.argv.slice(2);
+    const argPair = this.parseArgs(args);
+    const parsedArgs = argPair[0];
+    const passthrough = argPair[1];
+
+    const mode = parsedArgs['mode'] || 'curl';
+
+    if (mode === 'curl') {
+      const prepared = this.prepareCurl(parsedArgs, passthrough);
+      const curlCommand = prepared[2];
+      this.execAndExit(curlCommand);
+    } else if (mode === 'proxy') {
+      this.die('proxy mode not implemented');
+    } else {
+      this.die('unknown mode: ' + mode);
+    }
   }
 };
