@@ -5,6 +5,8 @@
 
 const exec = require('child_process').exec;
 const hmacSHA512 = require('./sha512');
+const http = require('http');
+const httpProxy = require('http-proxy');
 const moment = require('moment');
 const url = require('url');
 
@@ -75,6 +77,10 @@ module.exports = {
   // Returns the current UTC time in ISO8601.
   now: function() {
     return moment().utc().format('YYYY-MM-DDTHH:mm:ssZZ');
+  },
+
+  logTime: function(msg) {
+    console.log('[' + this.now() + '] ' + msg);
   },
 
   // throw can't be used in expression position, so...
@@ -167,8 +173,25 @@ module.exports = {
     return this.sign(uri, token, secret, time, passthrough);
   },
 
-  runProxy: function(uri) {
-    this.die('proxy not implemented');
+  runProxy: function(uri, port) {
+    const self = this;
+    const proxy = httpProxy.createProxyServer({
+      secure: true
+    });
+
+    proxy.on('proxyReq', function(proxyReq, req, res, options) {
+      proxyReq.setHeader('X-Special-Proxy-Header', 'foobar');
+    });
+
+    const server = http.createServer(function(req, res) {
+      self.logTime(req.method + ' ' + req.url);
+      proxy.web(req, res, {
+        target: uri
+      });
+    });
+
+    this.logTime('listening on port ' + port)
+    server.listen(port);
   },
 
   // Main function for skylark-curl
@@ -186,7 +209,8 @@ module.exports = {
       this.execAndExit(curlCommand);
     } else if (mode === 'proxy') {
       const uri = parsedArgs['uri'] || this.die('need --uri');
-      this.runProxy(uri);
+      const port = parsedArgs['port'] || this.die('need --port');
+      this.runProxy(uri, port);
     } else {
       this.die('unknown mode: ' + mode);
     }
