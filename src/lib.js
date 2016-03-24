@@ -178,9 +178,27 @@ module.exports = {
     return this.sign(uri, token, secret, time, passthrough);
   },
 
+  // Pure function that returns the signature of the given (dated) request
+  computeSignature: function(uri, token, secret, time, request) {
+    // TODO(eric) compute this
+    return "asdf";
+  },
+
   // Signs the given request
-  signRequest: function(uri, token, secret, time, request) {
-    // TODO
+  signRequest: function(uri, time, request) {
+    const token = this.yankHeader(request, this.tokenHeader);
+    const secret = this.yankHeader(request, this.secretHeader);
+
+    request.rawHeaders.push(this.dateHeader);
+    request.rawHeaders.push(time);
+
+    if (token && secret) {
+      const signature = this.computeSignature(uri, token, secret, time, request);
+      const authValue = 'SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
+
+      request.rawHeaders.push(this.authHeader);
+      request.rawHeaders.push(authValue);
+    }
   },
 
   // Finds the given header and removes it from the request!
@@ -204,15 +222,8 @@ module.exports = {
 
     const server = http.createServer(function(req, res) {
       self.logTime(req.method + ' ' + req.url);
-      const token = self.yankHeader(req, self.tokenHeader);
-      const secret = self.yankHeader(req, self.secretHeader);
-      if (token && secret) {
-        self.logTime('Signing with token: ' + token);
-        const time = self.now();
-        self.signRequest(uri, token, secret, time, req);
-      } else {
-        self.logTime('Not signing');
-      }
+      const time = self.now();
+      self.signRequest(uri, time, req);
       proxy.web(req, res, {
         target: uri
       });
