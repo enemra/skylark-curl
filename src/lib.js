@@ -179,6 +179,12 @@ module.exports = {
 
       const signature = hmacSHA512(secret, digest);
 
+      console.log('CURL:');
+      console.log(token);
+      console.log(secret);
+      console.log(digest);
+      console.log(signature);
+
       authValue = this.authHeader + ': SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
 
       curlArgs.push('-H');
@@ -248,22 +254,18 @@ module.exports = {
 
       const digest = this.makeDigest(method, path, host, port, query, headers, body);
 
-      console.log(token);
-
-      console.log(secret);
-
-      console.log(digest);
-
       const signature = hmacSHA512(secret, digest);
 
+      console.log('PROXY:');
+      console.log(token);
+      console.log(secret);
+      console.log(digest);
       console.log(signature);
 
       const authValue = 'SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
 
       request.rawHeaders.push(this.authHeader);
       request.rawHeaders.push(authValue);
-
-      console.log(request.rawHeaders);
     }
   },
 
