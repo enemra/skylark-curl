@@ -39,5 +39,45 @@ module.exports = {
     test.deepEqual(prepared[0], expectedTime);
     test.deepEqual(prepared[1], expectedAuth);
     test.done();
+  },
+  testProxy: function(test) {
+    const time = '2016-03-23T19:04:45+0000'
+    const token = 'abc'
+    const secret = 'def'
+    const destUri = 'http://localhost:3030'
+    const proxyUri = 'http://localhost:3031'
+    const path = '/a/b?c=d&g&e=f'
+
+    const parsedArgs = {
+      'uri': destUri + path,
+      'token': token,
+      'secret': secret,
+      'time': time
+    }
+    const passthrough = ['-H', 'C: D', '-H', 'A: B', '-H', 'E: F']
+    const expectedSig = 'd4a2e875ea0d1fd30f76d3de72a85f4c46849c0d2a9fe8723829dc8bddf86d6e44b66459e7db5e887cb3228b34613cb000061e29de4c384bfd7a87d770ca670e'
+    const expectedAuth = 'Authorization: SWIFTNAV-V1-PRF-HMAC-SHA-512 abc:' + expectedSig
+
+    const prepared = lib.prepareCurl(parsedArgs, passthrough)
+    const actualCurlAuth = prepared[1]
+    test.deepEqual(actualCurlAuth, expectedAuth);
+
+    const req = {
+      'url': proxyUri + path,
+      'method': 'GET',
+      'rawHeaders': [
+        'C', 'D',
+        'X-SwiftNav-Proxy-Token', token,
+        'A', 'B',
+        'X-SwiftNav-Proxy-Secret', secret,
+        'E', 'F'
+      ]
+    }
+    lib.signRequest(destUri, time, req);
+    const actualSig = lib.lookupArg(req.rawHeaders, 'Authorization')
+    const actualProxyAuth = 'Authorization: ' + actualSig
+    test.deepEqual(actualProxyAuth, expectedAuth);
+
+    test.done();
   }
 };

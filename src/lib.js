@@ -267,7 +267,9 @@ module.exports = {
     this.yankHeader(req, key);
     req.rawHeaders.push(key);
     req.rawHeaders.push(value);
-    req.headers[key] = value;
+    if (req.headers) {
+      req.headers[key] = value;
+    }
     return req;
   },
 
@@ -290,7 +292,9 @@ module.exports = {
       if (arg.toLowerCase() === key.toLowerCase()) {
         var value = args[parseInt(i) + 1];
         args.splice(i, 2);
-        delete req.headers[arg.toLowerCase()];
+        if (req.headers) {
+          delete req.headers[arg.toLowerCase()];
+        }
         return value;
       }
     }
