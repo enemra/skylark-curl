@@ -104,6 +104,38 @@ module.exports = {
     });
   },
 
+  makeDigest: function(method, path, host, port, query, headers, body) {
+    // Canonicalize headers
+    const swiftHeaders = headers.filter(function(h) {
+      return h[0].indexOf('x-swiftnav') == 0;
+    });
+
+    const canonicalSwiftHeaders = swiftHeaders.sort(function (a, b) {
+      return a[0].localeCompare(b[0]);
+    }).map(function (h) {
+      return h.join(':');
+    }).join('\n');
+
+    // Canonicalize query string
+    const canonicalizedQuery = '?' + query.sort(function (a, b) {
+      const aName = a[0];
+      const bName = b[0];
+      return a[0].localeCompare(b[0]);
+    }).map(function (q) {
+      return q.join('=');
+    }).join('&');
+
+    return [
+      method,
+      path,
+      host,
+      port,
+      canonicalizedQuery,
+      canonicalSwiftHeaders,
+      body
+    ].join('\n');
+  },
+
   // Calculates request signature and returns [auth header, curl command]
   sign: function(uri, token, secret, time, passthrough) {
     const curlArgs = passthrough.slice();
@@ -116,42 +148,31 @@ module.exports = {
     curlArgs.push('-H');
     curlArgs.push(timeHeader);
 
-    // Canonicalize headers
-    const swiftHeaders = [];
-    this.lookupAllArgs(curlArgs, '-H').forEach(function(value) {
-      const headerValue = value.split(' ');
-      if ((headerValue[0] || '').toLowerCase().indexOf('x-swiftnav') === 0) {
-        swiftHeaders.push(headerValue[0].toLowerCase() + headerValue.slice(1).join(' '));
-      }
-    })
-
-    const canonicalSwiftHeaders = swiftHeaders.sort(function (a, b) {
-      const aName = a.split(' ')[0] || a;
-      const bName = b.split(' ')[0] || b;
-      return aName.localeCompare(bName);
-    }).join('\n');
-
     const parsedUri = url.parse(uri);
-
-    // Canonicalize query string
-    const canonicalizedQuery = '?' + (parsedUri.query || '').split('&').sort(function (a, b) {
-      const aName = a.split('=')[0] || a;
-      const bName = b.split('=')[0] || b;
-      return aName.localeCompare(bName);
-    }).join('&');
 
     // Get request method
     const method = this.lookupArg(curlArgs, '-X') || "GET";
-
-    // Get request body, if present
-    const body = this.lookupArg(curlArgs, '--data') || '';
 
     // TODO: put port on a separate line
     const path = parsedUri.pathname;
     const host = parsedUri.hostname;
     const port = parsedUri.port || (parsedUri.protocol === 'https:' ? 443 : 80);
-    const query = canonicalizedQuery;
-    const digest = method + "\n" + path + "\n" + host + "\n" + port + "\n" + query + "\n" + canonicalSwiftHeaders + "\n" + body;
+
+    const query = (parsedUri.query || '').split('&').map(function(p) {
+      return p.split('=');
+    });
+
+    const headers = this.lookupAllArgs(curlArgs, '-H').map(function(value) {
+      const pieces = value.split(' ');
+      var key = pieces[0].toLowerCase().slice(0, -1);
+      var value = pieces.slice(1).join(' ');
+      return [key, value];
+    });
+
+    // Get request body, if present
+    const body = this.lookupArg(curlArgs, '--data') || '';
+
+    const digest = this.makeDigest(method, path, host, port, query, headers, body);
 
     // Create auth header
     var authHeader = '';
