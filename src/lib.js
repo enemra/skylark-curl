@@ -142,50 +142,52 @@ module.exports = {
 
     curlArgs.unshift(uri);
 
-    const timeHeader = this.dateHeader + ': ' + time;
+    const timeValue = this.dateHeader + ': ' + time;
+    var authValue = '';
 
     // Add date header
     curlArgs.push('-H');
-    curlArgs.push(timeHeader);
+    curlArgs.push(timeValue);
 
-    const parsedUri = url.parse(uri);
-
-    // Get request method
-    const method = this.lookupArg(curlArgs, '-X') || "GET";
-
-    // TODO: put port on a separate line
-    const path = parsedUri.pathname;
-    const host = parsedUri.hostname;
-    const port = parsedUri.port || (parsedUri.protocol === 'https:' ? 443 : 80);
-
-    const query = (parsedUri.query || '').split('&').map(function(p) {
-      return p.split('=');
-    });
-
-    const headers = this.lookupAllArgs(curlArgs, '-H').map(function(value) {
-      const pieces = value.split(' ');
-      var key = pieces[0].toLowerCase().slice(0, -1);
-      var value = pieces.slice(1).join(' ');
-      return [key, value];
-    });
-
-    // Get request body, if present
-    const body = this.lookupArg(curlArgs, '--data') || '';
-
-    const digest = this.makeDigest(method, path, host, port, query, headers, body);
-
-    // Create auth header
-    var authHeader = '';
     if (token && secret) {
+
+      const parsedUri = url.parse(uri);
+
+      // Get request method
+      const method = this.lookupArg(curlArgs, '-X') || "GET";
+
+      // TODO: put port on a separate line
+      const path = parsedUri.pathname;
+      const host = parsedUri.hostname;
+      const port = parsedUri.port || (parsedUri.protocol === 'https:' ? 443 : 80);
+
+      const query = (parsedUri.query || '').split('&').map(function(p) {
+        return p.split('=');
+      });
+
+      const headers = this.lookupAllArgs(curlArgs, '-H').map(function(value) {
+        const pieces = value.split(' ');
+        var key = pieces[0].toLowerCase().slice(0, -1);
+        var value = pieces.slice(1).join(' ');
+        return [key, value];
+      });
+
+      // Get request body, if present
+      const body = this.lookupArg(curlArgs, '--data') || '';
+
+      const digest = this.makeDigest(method, path, host, port, query, headers, body);
+
       const signature = hmacSHA512(secret, digest);
-      authHeader = this.authHeader + ': SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
+
+      authValue = this.authHeader + ': SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
+
       curlArgs.push('-H');
-      curlArgs.push(authHeader);
+      curlArgs.push(authValue);
     }
 
     const command = 'curl ' + curlArgs.map(this.escapeShell).join(' ');
 
-    return [timeHeader, authHeader, command];
+    return [timeValue, authValue, command];
   },
 
   // Parse arguments and return a signed request
