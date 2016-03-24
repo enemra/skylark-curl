@@ -15,6 +15,7 @@ module.exports = {
   authHeader: 'Authorization',
   tokenHeader: 'X-SwiftNav-Proxy-Token',
   secretHeader: 'X-SwiftNav-Proxy-Secret',
+  headerPrefix: 'x-swiftnav-proxy-',
 
   // String escape for use with `exec`
   escapeShell: function(cmd) {
@@ -179,12 +180,6 @@ module.exports = {
 
       const signature = hmacSHA512(secret, digest);
 
-      console.log('CURL:');
-      console.log(token);
-      console.log(secret);
-      console.log(digest);
-      console.log(signature);
-
       authValue = this.authHeader + ': SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
 
       curlArgs.push('-H');
@@ -231,8 +226,7 @@ module.exports = {
     const token = this.yankHeader(request, this.tokenHeader);
     const secret = this.yankHeader(request, this.secretHeader);
 
-    request.rawHeaders.push(this.dateHeader);
-    request.rawHeaders.push(time);
+    this.setHeader(request, this.dateHeader, time);
 
     if (token && secret) {
       const parsedDestUri = url.parse(destUri);
@@ -256,16 +250,37 @@ module.exports = {
 
       const signature = hmacSHA512(secret, digest);
 
-      console.log('PROXY:');
-      console.log(token);
-      console.log(secret);
-      console.log(digest);
-      console.log(signature);
-
       const authValue = 'SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
 
-      request.rawHeaders.push(this.authHeader);
-      request.rawHeaders.push(authValue);
+      this.setHeader(request, this.authHeader, authValue);
+
+      this.setHeader(request, 'host', host + ':' + port);
+
+      this.cleanHeaders(request);
+    }
+
+    return request;
+  },
+
+  // Set a header value in the request
+  setHeader: function (req, key, value) {
+    this.yankHeader(req, key);
+    req.rawHeaders.push(key);
+    req.rawHeaders.push(value);
+    if (req.headers) {
+      req.headers[key] = value;
+    }
+    return req;
+  },
+
+  // Clean headers - remove any proxy-related headers
+  cleanHeaders: function (req) {
+    const args = req.rawHeaders;
+    for (var i in args) {
+      var arg = args[i];
+      if (arg.toLowerCase().indexOf(this.headerPrefix) === 0) {
+        this.yankHeader(arg);
+      }
     }
   },
 
@@ -277,6 +292,9 @@ module.exports = {
       if (arg.toLowerCase() === key.toLowerCase()) {
         var value = args[parseInt(i) + 1];
         args.splice(i, 2);
+        if (req.headers) {
+          delete req.headers[arg.toLowerCase()];
+        }
         return value;
       }
     }
