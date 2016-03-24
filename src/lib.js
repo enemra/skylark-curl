@@ -207,8 +207,21 @@ module.exports = {
     return "asdf";
   },
 
+  chunk: function(arr) {
+    const out = [];
+    const n = arr.length;
+    var i = 0;
+
+    while (i < n) {
+      out.push([arr[i], arr[i+1]]);
+      i += 2;
+    }
+
+    return out;
+  },
+
   // Signs the given request
-  signRequest: function(uri, time, request) {
+  signRequest: function(destUri, time, request) {
     const token = this.yankHeader(request, this.tokenHeader);
     const secret = this.yankHeader(request, this.secretHeader);
 
@@ -216,11 +229,41 @@ module.exports = {
     request.rawHeaders.push(time);
 
     if (token && secret) {
-      const signature = this.computeSignature(uri, token, secret, time, request);
+      const parsedDestUri = url.parse(destUri);
+      const parsedUri = url.parse(request.url);
+
+      const method = request.method;
+      const path = parsedUri.pathname;
+      const host = parsedDestUri.hostname;
+      const port = parsedDestUri.port || (parsedDestUri.protocol === 'https:' ? 443 : 80);
+      const query = (parsedUri.query || '').split('&').map(function (q) {
+        return q.split('=');
+      });
+      const headers = this.chunk(request.rawHeaders).map(function(h) {
+        h[0] = h[0].toLowerCase();
+        return h;
+      });
+
+      const body = request.data;
+
+      const digest = this.makeDigest(method, path, host, port, query, headers, body);
+
+      console.log(token);
+
+      console.log(secret);
+
+      console.log(digest);
+
+      const signature = hmacSHA512(secret, digest);
+
+      console.log(signature);
+
       const authValue = 'SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
 
       request.rawHeaders.push(this.authHeader);
       request.rawHeaders.push(authValue);
+
+      console.log(request.rawHeaders);
     }
   },
 
