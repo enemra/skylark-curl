@@ -5,10 +5,18 @@
 
 const exec = require('child_process').exec;
 const hmacSHA512 = require('./sha512');
+const http = require('http');
+const httpProxy = require('http-proxy');
 const moment = require('moment');
 const url = require('url');
 
 module.exports = {
+  dateHeader: 'X-SwiftNav-Date',
+  authHeader: 'Authorization',
+  tokenHeader: 'X-SwiftNav-Proxy-Token',
+  secretHeader: 'X-SwiftNav-Proxy-Secret',
+  headerPrefix: 'x-swiftnav-proxy-',
+
   // String escape for use with `exec`
   escapeShell: function(cmd) {
     if (cmd.indexOf(' ') !== -1 || cmd.indexOf('&') !== -1) {
@@ -77,6 +85,10 @@ module.exports = {
     return moment().utc().format('YYYY-MM-DDTHH:mm:ssZZ');
   },
 
+  logTime: function(msg) {
+    console.log('[' + this.now() + '] ' + msg);
+  },
+
   // throw can't be used in expression position, so...
   die: function(reason) {
     throw reason;
@@ -93,88 +105,235 @@ module.exports = {
     });
   },
 
+  makeDigest: function(method, path, host, port, query, headers, body) {
+    // Canonicalize headers
+    const swiftHeaders = headers.filter(function(h) {
+      return h[0].indexOf('x-swiftnav') == 0;
+    });
+
+    const canonicalSwiftHeaders = swiftHeaders.sort(function (a, b) {
+      return a[0].localeCompare(b[0]);
+    }).map(function (h) {
+      return h.join(':');
+    }).join('\n');
+
+    // Canonicalize query string
+    const canonicalizedQuery = '?' + query.sort(function (a, b) {
+      const aName = a[0];
+      const bName = b[0];
+      return a[0].localeCompare(b[0]);
+    }).map(function (q) {
+      return q.join('=');
+    }).join('&');
+
+    return [
+      method,
+      path,
+      host,
+      port,
+      canonicalizedQuery,
+      canonicalSwiftHeaders,
+      body
+    ].join('\n');
+  },
+
   // Calculates request signature and returns [auth header, curl command]
   sign: function(uri, token, secret, time, passthrough) {
     const curlArgs = passthrough.slice();
 
     curlArgs.unshift(uri);
 
-    const timeHeader = 'X-SwiftNav-Date: ' + time;
+    const timeValue = this.dateHeader + ': ' + time;
+    var authValue = '';
 
     // Add date header
     curlArgs.push('-H');
-    curlArgs.push(timeHeader);
+    curlArgs.push(timeValue);
 
-    // Canonicalize headers
-    const swiftHeaders = [];
-    this.lookupAllArgs(curlArgs, '-H').forEach(function(value) {
-      const headerValue = value.split(' ');
-      if ((headerValue[0] || '').toLowerCase().indexOf('x-swiftnav') === 0) {
-        swiftHeaders.push(headerValue[0].toLowerCase() + headerValue.slice(1).join(' '));
-      }
-    })
-
-    const canonicalSwiftHeaders = swiftHeaders.sort(function (a, b) {
-      const aName = a.split(' ')[0] || a;
-      const bName = b.split(' ')[0] || b;
-      return aName.localeCompare(bName);
-    }).join('\n');
-
-    const parsedUri = url.parse(uri);
-
-    // Canonicalize query string
-    const canonicalizedQuery = '?' + (parsedUri.query || '').split('&').sort(function (a, b) {
-      const aName = a.split('=')[0] || a;
-      const bName = b.split('=')[0] || b;
-      return aName.localeCompare(bName);
-    }).join('&');
-
-    // Get request method
-    const method = this.lookupArg(curlArgs, '-X') || "GET";
-
-    // Get request body, if present
-    const body = this.lookupArg(curlArgs, '--data') || '';
-
-    // TODO: put port on a separate line
-    const path = parsedUri.pathname;
-    const host = parsedUri.hostname;
-    const port = parsedUri.port || (parsedUri.protocol === 'https:' ? 443 : 80);
-    const query = canonicalizedQuery;
-    const digest = method + "\n" + path + "\n" + host + "\n" + port + "\n" + query + "\n" + canonicalSwiftHeaders + "\n" + body;
-
-    // Create auth header
-    var authHeader = '';
     if (token && secret) {
+
+      const parsedUri = url.parse(uri);
+
+      // Get request method
+      const method = this.lookupArg(curlArgs, '-X') || "GET";
+
+      // TODO: put port on a separate line
+      const path = parsedUri.pathname;
+      const host = parsedUri.hostname;
+      const port = parsedUri.port || (parsedUri.protocol === 'https:' ? 443 : 80);
+
+      const query = (parsedUri.query || '').split('&').map(function(p) {
+        return p.split('=');
+      });
+
+      const headers = this.lookupAllArgs(curlArgs, '-H').map(function(value) {
+        const pieces = value.split(' ');
+        var key = pieces[0].toLowerCase().slice(0, -1);
+        var value = pieces.slice(1).join(' ');
+        return [key, value];
+      });
+
+      // Get request body, if present
+      const body = this.lookupArg(curlArgs, '--data') || '';
+
+      const digest = this.makeDigest(method, path, host, port, query, headers, body);
+
       const signature = hmacSHA512(secret, digest);
-      authHeader = 'Authorization: SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
+
+      authValue = this.authHeader + ': SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
+
       curlArgs.push('-H');
-      curlArgs.push(authHeader);
+      curlArgs.push(authValue);
     }
 
     const command = 'curl ' + curlArgs.map(this.escapeShell).join(' ');
 
-    return [timeHeader, authHeader, command];
+    return [timeValue, authValue, command];
   },
 
   // Parse arguments and return a signed request
-  parseAndSign: function(args) {
-    const argPair = this.parseArgs(args);
-    const parsedArgs = argPair[0];
-    const passthrough = argPair[1];
-
+  prepareCurl: function(parsedArgs, passthrough) {
     // Extract token, secret
-    var uri = parsedArgs['uri'] || this.die('need --uri');
-    var token = parsedArgs['token'];
-    var secret = parsedArgs['secret'];
-    var time = parsedArgs['time'] || this.now();
+    const uri = parsedArgs['uri'] || this.die('need --uri');
+    const token = parsedArgs['token'];
+    const secret = parsedArgs['secret'];
+    const time = parsedArgs['time'] || this.now();
 
     return this.sign(uri, token, secret, time, passthrough);
   },
 
+  // Pure function that returns the signature of the given (dated) request
+  computeSignature: function(uri, token, secret, time, request) {
+    // TODO(eric) compute this
+    return "asdf";
+  },
+
+  chunk: function(arr) {
+    const out = [];
+    const n = arr.length;
+    var i = 0;
+
+    while (i < n) {
+      out.push([arr[i], arr[i+1]]);
+      i += 2;
+    }
+
+    return out;
+  },
+
+  // Signs the given request
+  signRequest: function(destUri, time, request) {
+    const token = this.yankHeader(request, this.tokenHeader);
+    const secret = this.yankHeader(request, this.secretHeader);
+
+    this.setHeader(request, this.dateHeader, time);
+
+    if (token && secret) {
+      const parsedDestUri = url.parse(destUri);
+      const parsedUri = url.parse(request.url);
+
+      const method = request.method;
+      const path = parsedUri.pathname;
+      const host = parsedDestUri.hostname;
+      const port = parsedDestUri.port || (parsedDestUri.protocol === 'https:' ? 443 : 80);
+      const query = (parsedUri.query || '').split('&').map(function (q) {
+        return q.split('=');
+      });
+      const headers = this.chunk(request.rawHeaders).map(function(h) {
+        h[0] = h[0].toLowerCase();
+        return h;
+      });
+
+      const body = request.data;
+
+      const digest = this.makeDigest(method, path, host, port, query, headers, body);
+
+      const signature = hmacSHA512(secret, digest);
+
+      const authValue = 'SWIFTNAV-V1-PRF-HMAC-SHA-512 ' + token + ':' + signature;
+
+      this.setHeader(request, this.authHeader, authValue);
+
+      this.setHeader(request, 'host', host + ':' + port);
+
+      this.cleanHeaders(request);
+    }
+
+    return request;
+  },
+
+  // Set a header value in the request
+  setHeader: function (req, key, value) {
+    this.yankHeader(req, key);
+    req.rawHeaders.push(key);
+    req.rawHeaders.push(value);
+    req.headers[key] = value;
+    return req;
+  },
+
+  // Clean headers - remove any proxy-related headers
+  cleanHeaders: function (req) {
+    const args = req.rawHeaders;
+    for (var i in args) {
+      var arg = args[i];
+      if (arg.toLowerCase().indexOf(this.headerPrefix) === 0) {
+        this.yankHeader(arg);
+      }
+    }
+  },
+
+  // Finds the given header and removes it from the request!
+  yankHeader: function(req, key) {
+    const args = req.rawHeaders;
+    for (var i in args) {
+      var arg = args[i];
+      if (arg.toLowerCase() === key.toLowerCase()) {
+        var value = args[parseInt(i) + 1];
+        args.splice(i, 2);
+        delete req.headers[arg.toLowerCase()];
+        return value;
+      }
+    }
+  },
+
+  runProxy: function(uri, port) {
+    const self = this;
+    const proxy = httpProxy.createProxyServer({
+      secure: true
+    });
+
+    const server = http.createServer(function(req, res) {
+      self.logTime(req.method + ' ' + req.url);
+      const time = self.now();
+      self.signRequest(uri, time, req);
+      proxy.web(req, res, {
+        target: uri
+      });
+    });
+
+    this.logTime('listening on port ' + port)
+    server.listen(port);
+  },
+
   // Main function for skylark-curl
   main: function() {
-    const signed = this.parseAndSign(process.argv.slice(2));
-    const curlCommand = signed[2];
-    this.execAndExit(curlCommand);
+    const args = process.argv.slice(2);
+    const argPair = this.parseArgs(args);
+    const parsedArgs = argPair[0];
+    const passthrough = argPair[1];
+
+    const mode = parsedArgs['mode'] || 'curl';
+
+    if (mode === 'curl') {
+      const prepared = this.prepareCurl(parsedArgs, passthrough);
+      const curlCommand = prepared[2];
+      this.execAndExit(curlCommand);
+    } else if (mode === 'proxy') {
+      const uri = parsedArgs['uri'] || this.die('need --uri');
+      const port = parsedArgs['port'] || this.die('need --port');
+      this.runProxy(uri, port);
+    } else {
+      this.die('unknown mode: ' + mode);
+    }
   }
 };
