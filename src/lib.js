@@ -80,13 +80,15 @@ module.exports = {
     return found;
   },
 
-  // Returns the current UTC time in ISO8601.
-  now: function() {
+  /**
+   * Returns the current UTC time in ISO8601, long format (the Skylark standard).
+   */
+  nowISO8601: function() {
     return moment().utc().format('YYYY-MM-DDTHH:mm:ssZZ');
   },
 
   logTime: function(msg) {
-    console.log('[' + this.now() + '] ' + msg);
+    console.log('[' + this.nowISO8601() + '] ' + msg);
   },
 
   // throw can't be used in expression position, so...
@@ -105,6 +107,9 @@ module.exports = {
     });
   },
 
+  /**
+   * Given all the parts of a request, generate a digest string.
+   */
   makeDigest: function(method, path, host, port, query, headers, body) {
     // Canonicalize headers
     const swiftHeaders = headers.filter(function(h) {
@@ -137,7 +142,9 @@ module.exports = {
     ].join('\n');
   },
 
-  // Calculates request signature and returns [auth header, curl command]
+  /**
+   * Calculates request signature and returns [auth header, curl command]
+   */
   sign: function(uri, token, secret, time, passthrough) {
     const curlArgs = passthrough.slice();
 
@@ -197,15 +204,9 @@ module.exports = {
     const uri = parsedArgs['uri'] || this.die('need --uri');
     const token = parsedArgs['token'];
     const secret = parsedArgs['secret'];
-    const time = parsedArgs['time'] || this.now();
+    const time = parsedArgs['time'] || this.nowISO8601();
 
     return this.sign(uri, token, secret, time, passthrough);
-  },
-
-  // Pure function that returns the signature of the given (dated) request
-  computeSignature: function(uri, token, secret, time, request) {
-    // TODO(eric) compute this
-    return "asdf";
   },
 
   chunk: function(arr) {
@@ -303,7 +304,7 @@ module.exports = {
 
     const server = http.createServer(function(req, res) {
       self.logTime(req.method + ' ' + req.url);
-      const time = self.now();
+      const time = self.nowISO8601();
 
       // Need to read and buffer body
       var reqBody = '';
