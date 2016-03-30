@@ -13,8 +13,8 @@
   "author": "Joshua Gross <joshua.gross@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "http-proxy": "^1.13.2",
-    "moment": "^2.12.0"
+    "moment": "^2.12.0",
+    "request": "^2.69.0"
   },
   "devDependencies": {
     "nodeunit": "^0.9.1"

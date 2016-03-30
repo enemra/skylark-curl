@@ -6,7 +6,7 @@
 const exec = require('child_process').exec;
 const hmacSHA512 = require('./sha512');
 const http = require('http');
-const httpProxy = require('http-proxy');
+const request = require('request');
 const moment = require('moment');
 const url = require('url');
 
@@ -222,7 +222,7 @@ module.exports = {
   },
 
   // Signs the given request
-  signRequest: function(destUri, time, request) {
+  signRequest: function(destUri, time, request, body) {
     const token = this.yankHeader(request, this.tokenHeader);
     const secret = this.yankHeader(request, this.secretHeader);
 
@@ -243,8 +243,6 @@ module.exports = {
         h[0] = h[0].toLowerCase();
         return h;
       });
-
-      const body = request.data;
 
       const digest = this.makeDigest(method, path, host, port, query, headers, body);
 
@@ -302,16 +300,26 @@ module.exports = {
 
   runProxy: function(uri, port) {
     const self = this;
-    const proxy = httpProxy.createProxyServer({
-      secure: true
-    });
 
     const server = http.createServer(function(req, res) {
       self.logTime(req.method + ' ' + req.url);
       const time = self.now();
-      self.signRequest(uri, time, req);
-      proxy.web(req, res, {
-        target: uri
+
+      // Need to read and buffer body
+      var reqBody = '';
+      req.on('data', function (data) {
+        reqBody += data;
+      });
+      req.on('end', function () {
+        const parsedUri = url.parse(req.url);
+        self.signRequest(uri, time, req, reqBody);
+        var options = {
+          method:  req.method
+        , uri:     uri + parsedUri.pathname
+        , body:    reqBody
+        , headers: req.headers
+        };
+        return request(options).pipe(res);
       });
     });
 
