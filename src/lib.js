@@ -113,12 +113,13 @@ module.exports = {
   makeDigest: function(method, path, host, port, query, headers, body) {
     // Canonicalize headers
     const swiftHeaders = headers.filter(function(h) {
-      return h[0].indexOf('x-swiftnav') == 0;
+      return h[0].toLowerCase().indexOf('x-swiftnav') == 0;
     });
 
     const canonicalSwiftHeaders = swiftHeaders.sort(function (a, b) {
-      return a[0].localeCompare(b[0]);
+      return a[0].toLowerCase().localeCompare(b[0].toLowerCase());
     }).map(function (h) {
+      h[0] = h[0].toLowerCase();
       return h.join(':');
     }).join('\n');
 
@@ -126,13 +127,13 @@ module.exports = {
     const canonicalizedQuery = '?' + query.sort(function (a, b) {
       const aName = a[0];
       const bName = b[0];
-      return a[0].localeCompare(b[0]);
+      return a[0].toLowerCase().localeCompare(b[0].toLowerCase());
     }).map(function (q) {
       return q.join('=');
     }).join('&');
 
     return [
-      method,
+      (method + '').toUpperCase(),
       path,
       host,
       port,
