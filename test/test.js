@@ -40,6 +40,27 @@ module.exports = {
     test.deepEqual(prepared[1], expectedAuth);
     test.done();
   },
+  testPreparePost: function(test) {
+     const parsedArgs = {
+      'uri': 'http://localhost:3030/a/b?c=d&g&e=f',
+      'token': 'asdf',
+      'secret': 'sdfg',
+      'time': '2016-03-23T19:04:45+0000'
+    };
+    const passthrough = [
+      '-H', 'foo: bar',
+      '-H', 'X-SwiftNav-Zap: zip',
+      '-H', 'x-Swiftnav-Foo: BAR',
+      '-X', 'POST',
+      '--data', '{abc:123}'
+    ];
+    const prepared = lib.prepareCurl(parsedArgs, passthrough);
+    const expectedTime = 'X-SwiftNav-Date: 2016-03-23T19:04:45+0000';
+    const expectedAuth = 'Authorization: SWIFTNAV-V1-PRF-HMAC-SHA-512 asdf:a77db75c804d074dcabe1d051bc5d3f0ce61617d153e1b04b1557955efb23a9771fd804747cdd3480ec0971c6e816abc782f49dc969b8c7e0e19b08ddc7fa137';
+    test.deepEqual(prepared[0], expectedTime);
+    test.deepEqual(prepared[1], expectedAuth);
+    test.done();
+  },
   testProxy: function(test) {
     const time = '2016-03-23T19:04:45+0000'
     const token = 'abc'
