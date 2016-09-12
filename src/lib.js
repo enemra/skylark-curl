@@ -93,7 +93,7 @@ module.exports = {
 
   // throw can't be used in expression position, so...
   die: function(reason) {
-    throw reason;
+    throw new Error(reason);
   },
 
   // Run the given shell command and exit with its return code.
